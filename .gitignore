@@ -1,0 +1,17 @@
+# Local secrets — never commit
+.env.local
+.env*.local
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Model Guard runtime
+.model-guard/
+bench/results.json
+
+# Local agent skill installs (personal tooling, not part of the repo)
+.agents/
+.hermes/
