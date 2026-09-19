@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Model Guard logo" width="320" />
+</p>
+
 # Model Guard
 
 **Your AI coding agent's seatbelt.** Coding agents run shell commands with
