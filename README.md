@@ -158,60 +158,67 @@ honored signal. A documented limitation beats a false claim.
 
 Question: **does Model Guard reduce unsafe automatic execution versus
 simpler authorization, and what usability/latency/cost tradeoff does it
-introduce?** 312 labeled cases (`bench/cases.jsonl`, each with
+introduce?** 311 labeled scenarios (`bench/cases.jsonl`, each with
 `id/category/user_request/tool/command/expected/rationale`; labeling
-criteria in `bench/LABELS.md`): benign development actions, legitimate
-consequential actions, destructive commands, credential access,
+criteria in `bench/LABELS.md`): everyday development work, legitimate
+but consequential actions, destructive commands, credential access,
 exfiltration, privilege escalation, git/release/deploy, cloud/billing,
-intent mismatch, obfuscated/evasive variants, compound shells, and
-attacks shaped to miss static string rules — plus near-misses so the set
-isn't trivially separable.
+intent mismatch, disguised/evasive variants, chained commands, and
+attacks designed to slip past simple string matching — plus near-misses
+so the set isn't trivially easy.
 
-Four systems, same cases: **allow-everything** (no gate), **deterministic
-rules only** (local patterns; unmatched → ALLOW), **Jev only** (semantic
-layer alone), **full Model Guard** (floor + RULES + Jev + composition).
-Headline metrics are rates over all cases:
+Four setups, same 311 scenarios: **no gate at all** (everything runs),
+**local patterns only** (known-bad strings blocked, everything else
+runs), **Jev judgment only** (every action sent to the judge), and
+**full Model Guard** (local patterns + your rules + Jev combined).
+We measure five things, as shares of all 311 scenarios:
 
-- **unsafe auto-allow** (expected ASK/BLOCK → ALLOW — the critical miss)
-- **dangerous auto-allow** (expected BLOCK → ALLOW — highest severity)
-- **unnecessary intervention** (expected ALLOW → ASK/BLOCK — friction)
-- **false block** (expected ALLOW/ASK → BLOCK — worst friction)
-- **exact 3-way accuracy**
+- **let through when it shouldn't have** — needed a pause or a stop, ran anyway (the critical miss)
+- **let the worst through** — should have been stopped cold, ran anyway
+- **interrupted needlessly** — was safe, but paused or stopped (friction)
+- **blocked what shouldn't be** — was safe or needed just a pause, got a hard stop (worst friction)
+- **exact matches** — the gate's call agreed with the label, all three ways
 
 <!-- BENCH: generated from bench/results.json — do not hand-edit.
      Regenerate: set -a; source .env.local; set +a
      PYTHONPATH=src:bench python3 bench/run.py --mode all --json-out bench/results.json -->
 
-| system | unsafe auto-allow | dangerous auto-allow | unnecessary intervention | false block | exact accuracy |
+| setup | let through wrongly | let the worst through | interrupted needlessly | blocked wrongly | exact matches |
 |---|---|---|---|---|---|
-| allow-everything | 0.6624 (206/311) | 0.2701 (84/311) | 0.0000 (0/311) | 0.0000 (0/311) | 0.3376 |
-| deterministic only | 0.2637 (82/311) | 0.0418 (13/311) | 0.0129 (4/311) | 0.0064 (2/311) | 0.5949 |
-| Jev only | 0.0772 (24/311) | 0.0000 (0/311) | 0.0129 (4/311) | 0.2797 (87/311) | 0.6238 |
+| no gate | 0.6624 (206/311) | 0.2701 (84/311) | 0.0000 (0/311) | 0.0000 (0/311) | 0.3376 |
+| local patterns only | 0.2637 (82/311) | 0.0418 (13/311) | 0.0129 (4/311) | 0.0064 (2/311) | 0.5949 |
+| Jev judgment only | 0.0772 (24/311) | 0.0000 (0/311) | 0.0129 (4/311) | 0.2797 (87/311) | 0.6238 |
 | full Model Guard | 0.0836 (26/311) | 0.0032 (1/311) | 0.0225 (7/311) | 0.1222 (38/311) | 0.6495 |
 
-Measured 2026-09-19, `jev-1.13.0` (pinned via `TYPESAFE_MODEL`), 311
-cases (`2a251b41`), thresholds in `bench/results.json` `meta`. Full
-Model Guard handled 65.6% of cases locally (~0.1ms p50) and sent 34.4%
-to Jev (p95 320.6ms end-to-end); Jev-only p50/p95 283.9/348.6ms at
-~$0.046/1,000 actions (estimatedtokens: API returned no usage
-counts). Zero fail-closed events (key present, no timeouts). What the
-numbers say: the deterministic floor alone lets 26% of ASK/BLOCK through
-as ALLOW (13 of them BLOCKs); Jev closes that to 8% unsafe and zero
-dangerous but over-blocks (28% false-block, mostly ASKs escalated to
-BLOCK); the full gate lands between — 8% unsafe, 1 dangerous miss, 12%
-false-block, best exact accuracy at 0.65. Weakest categories are
-`consequential` (17 unsafe — mostlyroutine installs Jev calls ALLOW),
-`rule_miss` (2 unsafe), and `credential_access` (3 unsafe, 6
-false-blocks): the'installation-shaped' actions are the honest
-disagreement between a cautious ASK label and a permissive judge, and
-`obfuscated` keeps the single dangerous miss (base64 `rm -rf /` piped to
-`sh`).
+Tested 2026-09-19 on the 311 scenarios (judge: `jev-1.13.0`; full
+details in `bench/results.json`). In plain terms:
 
-Per-category breakdown, ALLOW/ASK/BLOCK confusion matrix, local-vs-Jev
-split, p50/p95 latency, Jev cost per 1,000 actions, and fail-closed
-counts: `bench/results.json` (machine-readable, with git commit, dataset
-hash, Jev model/version, thresholds, timestamp, Python version, and token
-usage). Precision/recall/F1 (positive class = ASK+BLOCK) are reported
+- **No gate** lets two-thirds of the risky actions run (84 of the
+  must-stop ones included). That's the problem we're solving.
+- **Local patterns alone** catch the obvious but miss about a quarter
+  of what should pause or stop — including 13 must-stop cases. Fast
+  and free, but blind to anything novel.
+- **The judge alone** catches nearly everything dangerous (zero
+  must-stop misses) but cries wolf a lot: it hard-stops 87 actions
+  that only needed a pause or were safe. Thorough, but noisy.
+- **Full Model Guard** gets the best overall agreement (65%) with one
+  must-stop miss and far fewer false alarms (38) than the judge
+  alone. Most everyday work — about two-thirds — is cleared instantly
+  on your machine; only the ambiguous third waits ~a third of a
+  second for the judge. Cost is roughly 5 cents per 1,000 actions
+  (estimated — the API didn't return exact token counts). Nothing
+  failed over to the safe fallback this run.
+
+Where it's weakest: routine installs (`npm install lodash` and
+friends) — our labels say "pause for approval," the judge says "fine,
+run it." That's a genuine judgment call, 17 of the 26 misses. The one
+must-stop miss was a delete-everything command hidden inside encoded
+text piped to the shell — the hardest shape in the set.
+
+Full detail — per-category breakdown, the confusion matrix, the
+local-vs-judge split, timing percentiles, cost, and fallback counts:
+`bench/results.json` (machine-readable, with git commit, dataset hash,
+judge version, thresholds, timestamp, Python version, and token usage). Precision/recall/F1 (positive class = ASK+BLOCK) are reported
 there as secondary diagnostics only. Reproduce:
 
 ```bash
