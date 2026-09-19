@@ -1,0 +1,1 @@
+{"hooks": {"PreToolUse": [{"matcher": ".*", "hooks": [{"type": "command", "command": "model-guard-hook --adapter antigravity"}]}]}}

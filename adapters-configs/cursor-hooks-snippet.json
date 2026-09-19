@@ -1,0 +1,1 @@
+{"version": 1, "hooks": {"beforeShellExecution": [{"command": ["model-guard-hook", "--adapter", "cursor"], "failClosed": true}], "beforeMCPExecution": [{"command": ["model-guard-hook", "--adapter", "cursor"], "failClosed": true}], "preToolUse": [{"command": ["model-guard-hook", "--adapter", "cursor"], "failClosed": true}]}}

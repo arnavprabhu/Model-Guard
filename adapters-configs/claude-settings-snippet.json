@@ -1,0 +1,1 @@
+{"hooks": {"PreToolUse": [{"matcher": "Bash|PowerShell|Edit|Write|Read|Glob|Grep|WebFetch|WebSearch|MultiEdit|NotebookEdit|TodoWrite|Task|BashOutput|KillShell|Skill|SlashCommand|mcp__.*", "hooks": [{"type": "command", "command": "model-guard-hook --adapter claude", "timeout": 30}]}]}}
